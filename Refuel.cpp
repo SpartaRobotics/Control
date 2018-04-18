@@ -85,7 +85,7 @@ int main(void)
 	dt = 0.3; 
 	     
 	 ////////* From E-E cam *///////////// 
-     ocp << -10 << endr// E-E cam
+     ocp << -20 << endr// E-E cam
 	     << 0 << endr // to
 	     << -30 << endr;//port
 
@@ -99,14 +99,13 @@ int main(void)
 	 obe = Abe.submat(0,3, 2,3);
 	 Rbe = Abe.submat(0,0, 2,2);
 	 oep_b = Rbe * oep;//w.r.t. base frame
-	 //obe_d = obe + oep_b;
-	  obe_d << 32 << endr
-	       << 0 << endr
-	       << 8 << endr;
+	 obe_d = obe + oep_b;
+	  /*obe_d << 32 << endr
+	        << 0 << endr
+	        << 8 << endr;*/
 	 obe_d.print("obe_d: ");
 	
-	 // Want Z straigt down at ~38
-	 cm in the Y //
+	 // Want Z straigt down at ~38 cm in the Y //
 	 // try rotating about Z if this doesnt converge//
 	 Rbe_d << 1 << 0 << 0 << endr
 	       << 0 << -1 << 0 << endr

@@ -45,6 +45,7 @@ int main(void)
         q(6,1),
  	    qd(6,1),
  	    qdeg(6,1),
+ 	    init(6,1),
 	    obe_d(3,1),
 	    obe(3,1),
 	    eps_d(3,1),		 
@@ -86,7 +87,7 @@ int main(void)
 	      
 	   oc_d << 4.268 << endr // base cam 
 	      << 18 << endr// to
-	      << -15 << endr;// ring
+	      << -30 << endr;// ring
 	       
 	 obc << -5 << endr
 	     << 10 << endr //base -> cam (EYEBALL)
@@ -151,7 +152,7 @@ int main(void)
 			reach = 1;
 			for(i=0; i<6; i++)
 			{
-			    // Convert q(>pi) --> q(<pi) //
+			    // Convert (q>pi) --> (-pi<q<pi) //
 			    q2pi = q(i)/(2*M_PI); 
 			    qi = int(q2pi);
 			    qd(i) = q2pi-qi;
@@ -179,43 +180,69 @@ int main(void)
 			        }
 			    }
 			}
+			qd.print("qd: ");
 			/////////rad -> deg////////////////
 			qdeg = qd * 180 / M_PI;
 			qdeg.print("qdeg: ");
 			posErr = posErr.submat(0,0, 0,a);
 			oriErr = oriErr.submat(0,0, 0,a);
-			/////// q -> servo values/////
+			
+			/////// q -> encoder values/////
 			serv = (qd*651.7395);
-			for(i = 0; i < 6; i++)
+			init << 475 << endr
+			     << 3700 << endr // subject to slip! 
+			     << 2230 << endr
+			     << 3033 << endr
+			     << 1950 << endr
+			     << 1900 << endr;
+			
+
+			
+			for(i = 1; i < 6; i++)
 			{
-			    serv(i) = int(serv(i)) + MOVE_OFFSET;
+			    serv(i) = int(serv(i) + init(i)); //Joint offset!!!
 			}
-		//	serv(0) = serv(0)*3; // Gear
-		//  serv(1) = serv(1)*3; // ratios
+		
+			if (serv(0) < 0)
+			{
+			    serv(0) = (qd(0)*3)+(2*M_PI);
+			    serv(0) = 1425+(serv(0)*651.7395);
+			    serv(0) = 4095+serv(0);
+			}
+			
+		    if (serv(3) > 4095)
+            {
+                serv(3) = init(3) + serv(3) - 4095;
+			}
+
 			serv.print("Encoder Values: ");
 		    
-		    
 		    // Check joint limits //
-		    //Check directions with Bruce
-		    if (serv(1) > 3500)
+		    if (serv(1) > 7173 || serv(1) < 77) //Subject to slip!
 		    {
 		        cout << "JOINT 2 O.B.!!!" << endl;
 	            break;
 	            reach = 0;
 		    }
-		    if (serv(2) < 1036 || serv(2) > 3553)
+		    if (serv(2) < 920 || serv(2) > 3555)
 		    {
 		        cout << "JOINT 3 O.B.!!!" << endl;
 		        break;
 		        reach = 0;
 		    }
-		    if (serv(4) < 705 || serv(4) > 3185)
+		    if (serv(3) < 0 || serv(3) > 4095)
+		    {
+		        cout << "JOINT 4 O.B.!!!" << endl;
+		        break;
+		        reach = 0;
+		    }
+		    if (serv(4) < 600 || serv(4) > 3250)
 		    {
 		        cout << "JOINT 5 O.B.!!!" << endl;
 		        break;
 		        reach = 0;
 		    }
-		    if (serv(5) < 720 || serv(5) > 3209)
+		    if (serv(5) < 630 || serv(5) > 3266)
 		    {
 		        cout << "JOINT 6 O.B.!!!" << endl;
 		        break;
