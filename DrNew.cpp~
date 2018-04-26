@@ -23,16 +23,28 @@ cube getAbeach(vec q);
 
 //UsbMX control;
 
-void drControl(double *Obe, int *controlPos);
+void drControl(double *obe_IN, double *Rbe_IN, double *q0_IN, int *controlPos_OUT, double *q_OUT);
 
 ////////////////g++ DrNew.cpp -larmadillo UsbMX.cpp -o Dock///////////////////
 int main()
 {
-    double Obe[3] = {280, 0 ,-50};
-    int controlPos[6] = {0, 0, 0, 0, 0, 0}, 
-    i;
+    double obe_IN[3] = {280.0, 0.0 ,-50.0};
+    double Rbe_IN[9] = {0.0, 1.0 , 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, -1.0};
+    double q0_IN[6] = {0.1, 0.78, 0.0, 0.78, 0.78, 1.57};
+    int controlPos_OUT[6] = {0, 0, 0, 0, 0, 0};
+    double q_OUT[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    int i;
     
-    drControl(Obe, controlPos);
+    
+    cout << "Input Xbe(mm): " << endl;
+	cin >> obe_IN[0];
+	cout << "Input Ybe(mm): " << endl;
+	cin >> obe_IN[1];
+	cout << "Input Zbe(mm): " << endl;
+	cin >> obe_IN[2];
+    
+    
+    drControl(obe_IN, Rbe_IN, q0_IN, controlPos_OUT, q_OUT);
     
     cout << endl << "Main servo values: " << endl;
     for(i=0; i<6; i++)
@@ -44,7 +56,7 @@ int main()
 }
 
 
-void drControl(double *Obe, int *controlPos)
+void drControl(double *obe_IN, double *Rbe_IN, double *q0_IN, int *controlPos_OUT, double *q_OUT)
 {
     struct timeval start,stop;
     gettimeofday(&start,NULL);
@@ -63,7 +75,7 @@ void drControl(double *Obe, int *controlPos)
 
 	double offset, dt, eta_d, eta, qi, q2pi, mag;
 
-	int a, i, attempts = 10000, reach=0, phase = 1;
+	int a, i, j, attempts = 10000, reach=0, phase = 1;
 	double lambda = .1;
 	    
 	vec serv(6,1),
@@ -112,248 +124,252 @@ void drControl(double *Obe, int *controlPos)
 	     
 	cube Abi(4,4,8);
 
- while(reach == 0)
-  {	      
-	   if (phase == 1) //Docking
-	   {
-        //This is CV//
-	    /*oc_d << 35    << endr // base cam 
-	         << -10   << endr // to
-	         << -10   << endr;// ring
-	       
-	    obc << -5 << endr
-	        << 10 << endr //base -> cam (EYEBALL)
-	        << 5.5 << endr;
-	      
-	    obe_d = oc_d + obc;*/ 
-	    
-	    /* 
-	    cout << "Input Xbe(mm): " << endl;
-	    cin >> obe_d(0);
-	    cout << "Input Ybe(mm): " << endl;
-	    cin >> obe_d(1);
-	    cout << "Input Zbe(mm): " << endl;
-	    cin >> obe_d(2);
-	    */
-	    
-	    obe_d(0) = Obe[0];
-	    obe_d(1) = Obe[1];
-	    obe_d(2) = Obe[2];
-	    
-	    app << 0 << endr
-	        << 0 << endr
-	        << 50 << endr;
-	    obe_d += app;
-	   
-	  
-	    // Want Z straigt down & Y away from center of Target//
-	    Rbe_d << 0 << 1 << 0 << endr
-	          << 1 << 0 << 0 << endr
-	          << 0 << 0 << -1 << endr;
-	   }
-	   else if (phase == 2) //Refueling
-	   {
-	    	 ////////* From E-E cam *///////////// 
-         /*ocp << -20 << endr// E-E cam
-	         << 0   << endr // to
-	         << -30 << endr;//port
-
-	     oce << -2.5 << endr
-	         << 0 << endr //cam -> E-E (EYEBALL)
-	         << 7 << endr;
-	        //Translate camera -> base frame//
-	     oep = ocp - oce;//EE -> port
-	     Abi = getAbe(q);
-	     Abe = Abi.slice(7);
-	     obe = Abe.submat(0,3, 2,3);
-	     Rbe = Abe.submat(0,0, 2,2);
-	     oep_b = Rbe * oep;//w.r.t. base frame
-	     obe_d = obe + oep_b;*/
-	   }
-	          
-	// Arbitrary Start. Will read this from servos //
-	q << 1.2781 << endr // desired should be +.0027
-	  << 1.4653 << endr // should be - for MATLAB
-	  << .0261 << endr
-	  << .8408 << endr
-	  << 1.4837 << endr
-	  << 3.0411 << endr;
-	  
-	dt = 0.3; 
-	K = eye(6,6);
-	K(1,1) = 2;
-	K(2,2) = 2;
-	K(3,3) = 2;
-	
-	/*obe_d << 20 <<  endr
-	      << 0 << endr
-	      << 5 << endr;*/
-    phi_d << M_PI << endr
-          << 0 << endr
-          << 0 << endr;
-    
-	/*Rp << 1  <<    0           << 0.0            << endr
-	    << 0 <<  cos(phi_d(0)) << -sin(phi_d(0)) << endr
-	    << 0 <<  sin(phi_d(0)) << cos(phi_d(0))  << endr;
-
-	Rt <<  cos(phi_d(1)) << 0.0 << sin(phi_d(1)) << endr
-	   <<              0.0 << 1.0 <<             0.0 << endr
-	   << -sin(phi_d(1)) << 0.0 << cos(phi_d(1)) << endr;
-
-	Rs << cos(phi_d(2)) << -sin(phi_d(2)) << 0.0 << endr
-	    << sin(phi_d(2)) <<  cos(phi_d(2)) << 0.0 << endr
-	    <<           0.0 <<            0.0 << 1.0 << endr;
-	    
-	Rd = Rp*Rt*Rs;*/
-	
-	eta_d = 0.5*sqrt(Rbe_d(0,0)+Rbe_d(1,1)+Rbe_d(2,2)+1);
-    eps_d << 0.5*getSgn(Rbe_d(2,1)-Rbe_d(1,2))*sqrt(Rbe_d(0,0)-Rbe_d(1,1)-Rbe_d(2,2)+1) << endr
-        << 0.5*getSgn(Rbe_d(0,2)-Rbe_d(2,0))*sqrt(Rbe_d(1,1)-Rbe_d(0,0)-Rbe_d(2,2)+1) << endr
-	    << 0.5*getSgn(Rbe_d(1,0)-Rbe_d(0,1))*sqrt(Rbe_d(2,2)-Rbe_d(0,0)-Rbe_d(1,1)+1) << endr;
-	
-	/* Vector Initialization */
-	posErr.zeros(1,attempts);
-	oriErr.zeros(1,attempts);
-	eps.zeros(3,1);
-
-	/* Jacobian */
-	for(a=0; a<attempts; a++)
-	{
-		// Abi = getAbeach(q);
-		Abi = getAbe(q);
-
-		/* sub q into Abe for FK */
-		Abe = Abi.slice(7);
-		obe = Abe.submat(0,3,2,3);
-        
-		/* Convert Rbe to quaternion */
-		eta = 0.5*sqrt(Abe(0,0)+Abe(1,1)+Abe(2,2)+1);
-        eps << 0.5*getSgn(Abe(2,1)-Abe(1,2))*sqrt(Abe(0,0)-Abe(1,1)-Abe(2,2)+1) << endr
-            << 0.5*getSgn(Abe(0,2)-Abe(2,0))*sqrt(Abe(1,1)-Abe(0,0)-Abe(2,2)+1) << endr
-            << 0.5*getSgn(Abe(1,0)-Abe(0,1))*sqrt(Abe(2,2)-Abe(0,0)-Abe(1,1)+1) << endr;
-        //cout << eta << endl;
-        //eps.print("eps: ");
-        
-        /* calculate error */
-        if (phase == 1) 
+    while(reach == 0)
+    {	      
+        if (phase == 1) //Docking
         {
-		    ep = obe_d - obe;
-		}
-		else if (phase == 2)
-		{
-		    o_ct = trans(Rbe)*(obe_d-obe)-oce; //Check this math
-		    ep = Rbe*(oce + o_ct);
-		}
-		eo = -(eta_d*eps) + (eta*eps_d) - cross(eps_d,eps);
-		posErr(0,a) = sqrt(ep(0,0)*ep(0,0)+ep(1,0)*ep(1,0)+ep(2,0)*ep(2,0)); 
-		oriErr(0,a) = sqrt(eo(0,0)*eo(0,0)+eo(1,0)*eo(1,0)+eo(2,0)*eo(2,0));
+            //This is CV//
+	        /*oc_d << 35    << endr // base cam 
+	             << -10   << endr // to
+	             << -10   << endr;// ring
+	           
+	        obc << -5 << endr
+	            << 10 << endr //base -> cam (EYEBALL)
+	            << 5.5 << endr;
+	          
+	        obe_d = oc_d + obc;*/ 
+	        
+	        
+	        for(i=0; i<3; i++)
+	            obe_d(i) = obe_IN[i];
+	      
+	        app << 0 << endr
+	            << 0 << endr
+	            << 50 << endr;
+	        obe_d += app;
+	          
+	        // Want Z straigt down & Y away from center of Target//
+	        /*Rbe_d << 0 << 1 << 0 << endr
+	              << 1 << 0 << 0 << endr
+	              << 0 << 0 << -1 << endr;*/
+	        for(i=0; i<3; i++)
+	        {
+	            for(j=0; j<3; j++)
+	            {
+	                Rbe_d(i,j) = Rbe_IN[i+3*j];
+	            }
+            }       
+	              
+	          
+	          
+        }
+        else if (phase == 2) //Refueling
+        {
+            ////////* From E-E cam *///////////// 
+            /*ocp << -20 << endr// E-E cam
+	             << 0   << endr // to
+	             << -30 << endr;//port
 
-		/* determine when error is acceptable */
-
-		if((posErr(0,a) < 10e-2) && (oriErr(0,a) < 10e-2))
-		{
-			cout << "Attempts: "<< a << endl;
-			q(1) = -q(1); //joint 2 reversed (flip for MATLAB sim)
-			reach = 1;
-			for(i=0; i<6; i++)
-			{
-			    // Convert (q>pi) --> (-pi<q<pi) //
-			    q2pi = q(i)/(2*M_PI); 
-			    qi = int(q2pi);
-			    qd(i) = q2pi-qi;
-			    if (qd(i) <= 0)
-			    { 
-			        mag = abs(qd(i));
-			        if (mag > .5)
-			        {
-			            qd(i) = 2*M_PI*(1-mag);
-			        }
-			        else
-		   	        {
-			            qd(i) = 2*M_PI*qd(i);
-			        }
-			    }
-			    else
-			    { 
-			        if (qd(i) > .5)
-			        {
-			            qd(i) = -2*M_PI*(1-qd(i));
-			        }
-			        else
-		   	        {
-			            qd(i) = 2*M_PI*qd(i);
-			        }
-			    }
-			}
-			//qd.print("qd: ");
-			
-			/////////rad -> deg////////////////
-			qdeg = qd * 180 / M_PI;
-			posErr = posErr.submat(0,0, 0,a);
-			oriErr = oriErr.submat(0,0, 0,a);
-			
-			/////// q -> encoder values/////
-			serv = (qd*651.7395);
-			init << 1987 << endr
-			     << 2293 << endr // subject to slip! 
-			     << 2230 << endr
-			     << 1810 << endr
-			     << 1950 << endr
-			     << 2430 << endr;
-			
-			for(i = 0; i < 6; i++)
-			{
-			    serv(i) = int(serv(i) + init(i)); //Joint offset!!!
-			    if (serv(i) < 0)
-			    {
-			        serv(i) = serv(i) + 4095;
-			    }
-			}
-		
-			//serv.print("Encoder Values: ");
-			//cout << endl << serv(0) << endl;
-			for (i=0; i<6; i++)
-			{
-			    controlPos[i] = serv(i);
-			}
+	         oce << -2.5 << endr
+	             << 0 << endr //cam -> E-E (EYEBALL)
+	             << 7 << endr;
+	            //Translate camera -> base frame//
+	         oep = ocp - oce;//EE -> port
+	         Abi = getAbe(q);
+	         Abe = Abi.slice(7);
+	         obe = Abe.submat(0,3, 2,3);
+	         Rbe = Abe.submat(0,0, 2,2);
+	         oep_b = Rbe * oep;//w.r.t. base frame
+	         obe_d = obe + oep_b;*/
+        }
+	          
+        // Arbitrary Start. Will read this from servos //
+        /*q << 1.2781 << endr // desired should be +.0027
+            << 1.4653 << endr // should be - for MATLAB
+            << .0261 << endr
+            << .8408 << endr
+            << 1.4837 << endr
+            << 3.0411 << endr;*/
+        for(i=0; i<6; i++)
+            q(i) = q0_IN[i];
+	  
+        dt = 0.3; 
+        K = eye(6,6);
+        K(1,1) = 2;
+        K(2,2) = 2;
+        K(3,3) = 2;
 	
-		    if (serv(2) < 940  || serv(2) > 3330)
-		    {
-		        cout << "JOINT 3 O.B.!!!" << endl;
-		        break;
-		        reach = 0;
+        /*obe_d << 20 <<  endr
+	      << 0 << endr
+	      << 5 << endr;
+        phi_d << M_PI << endr
+          << 0 << endr
+          << 0 << endr;*/
+    
+	    /*Rp << 1  <<    0           << 0.0            << endr
+	        << 0 <<  cos(phi_d(0)) << -sin(phi_d(0)) << endr
+	        << 0 <<  sin(phi_d(0)) << cos(phi_d(0))  << endr;
+
+	    Rt <<  cos(phi_d(1)) << 0.0 << sin(phi_d(1)) << endr
+	        <<              0.0 << 1.0 <<             0.0 << endr
+	        << -sin(phi_d(1)) << 0.0 << cos(phi_d(1)) << endr;
+
+	    Rs << cos(phi_d(2)) << -sin(phi_d(2)) << 0.0 << endr
+	        << sin(phi_d(2)) <<  cos(phi_d(2)) << 0.0 << endr
+	        <<           0.0 <<            0.0 << 1.0 << endr;
+	    
+	    Rd = Rp*Rt*Rs;*/
+	
+	    eta_d = 0.5*sqrt(Rbe_d(0,0)+Rbe_d(1,1)+Rbe_d(2,2)+1);
+        eps_d << 0.5*getSgn(Rbe_d(2,1)-Rbe_d(1,2))*sqrt(Rbe_d(0,0)-Rbe_d(1,1)-Rbe_d(2,2)+1) << endr
+            << 0.5*getSgn(Rbe_d(0,2)-Rbe_d(2,0))*sqrt(Rbe_d(1,1)-Rbe_d(0,0)-Rbe_d(2,2)+1) << endr
+	        << 0.5*getSgn(Rbe_d(1,0)-Rbe_d(0,1))*sqrt(Rbe_d(2,2)-Rbe_d(0,0)-Rbe_d(1,1)+1) << endr;
+	
+	    /* Vector Initialization */
+	    posErr.zeros(1,attempts);
+	    oriErr.zeros(1,attempts);
+	    eps.zeros(3,1);
+
+        /* Jacobian */
+        for(a=0; a<attempts; a++)
+        {
+		    // Abi = getAbeach(q);
+		    Abi = getAbe(q);
+
+		    /* sub q into Abe for FK */
+		    Abe = Abi.slice(7);
+		    obe = Abe.submat(0,3,2,3);
+            
+		    /* Convert Rbe to quaternion */
+		    eta = 0.5*sqrt(Abe(0,0)+Abe(1,1)+Abe(2,2)+1);
+            eps << 0.5*getSgn(Abe(2,1)-Abe(1,2))*sqrt(Abe(0,0)-Abe(1,1)-Abe(2,2)+1) << endr
+                << 0.5*getSgn(Abe(0,2)-Abe(2,0))*sqrt(Abe(1,1)-Abe(0,0)-Abe(2,2)+1) << endr
+                << 0.5*getSgn(Abe(1,0)-Abe(0,1))*sqrt(Abe(2,2)-Abe(0,0)-Abe(1,1)+1) << endr;
+            //cout << eta << endl;
+            //eps.print("eps: ");
+        
+            /* calculate error */
+            if (phase == 1) 
+            {
+		        ep = obe_d - obe;
 		    }
-		    if (serv(3) < 515 || serv(3) > 3160)
+		    else if (phase == 2)
 		    {
-		        cout << "JOINT 4 O.B.!!!" << endl;
-		        break;
-		        reach = 0;
+		        o_ct = trans(Rbe)*(obe_d-obe)-oce; //Check this math
+		        ep = Rbe*(oce + o_ct);
 		    }
-		    if (serv(4) < 600 || serv(4) > 3260)
+		    eo = -(eta_d*eps) + (eta*eps_d) - cross(eps_d,eps);
+		    posErr(0,a) = sqrt(ep(0,0)*ep(0,0)+ep(1,0)*ep(1,0)+ep(2,0)*ep(2,0)); 
+		    oriErr(0,a) = sqrt(eo(0,0)*eo(0,0)+eo(1,0)*eo(1,0)+eo(2,0)*eo(2,0));
+
+		    /* determine when error is acceptable */
+
+		    if((posErr(0,a) < 10e-2) && (oriErr(0,a) < 10e-2))
 		    {
-		        cout << "JOINT 5 O.B.!!!" << endl;
-		        break;
-		        reach = 0;
-		    }
-		    if (serv(5) < 1665 || serv(5) > 3715)
-		    {
-		        cout << "JOINT 6 O.B.!!!" << endl;
-		        break;
-		        reach = 0;
-		    }
-		    if (reach)
-		    {
-			   /* control.move(2, int(serv(2)));
-			    usleep(2000000);
-			    control.move(3, int(serv(3)));
-			    usleep(2000000);*/
-			}
-		   
-			break;
-		}
+		        for(i=0; i<6; i++)
+                    q_OUT[i] = q(i);
+            
+			    //cout << "Attempts: "<< a << endl;
+			    q(1) = -q(1); //joint 2 reversed (flip for MATLAB sim)
+			    reach = 1;
+			    for(i=0; i<6; i++)
+			    {
+			        // Convert (q>pi) --> (-pi<q<pi) //
+			        q2pi = q(i)/(2*M_PI); 
+			        qi = int(q2pi);
+			        qd(i) = q2pi-qi;
+			        if (qd(i) <= 0)
+			        { 
+			            mag = abs(qd(i));
+			            if (mag > .5)
+			            {
+			                qd(i) = 2*M_PI*(1-mag);
+			            }
+			            else
+		       	        {
+			                qd(i) = 2*M_PI*qd(i);
+			            }
+			        }
+			        else
+			        { 
+			            if (qd(i) > .5)
+			            {
+			                qd(i) = -2*M_PI*(1-qd(i));
+			            }
+			            else
+		       	        {
+			                qd(i) = 2*M_PI*qd(i);
+			            }
+			        }
+			    }
+			    //qd.print("qd: ");
+			
+			    /////////rad -> deg////////////////
+			    qdeg = qd * 180 / M_PI;
+			    posErr = posErr.submat(0,0, 0,a);
+			    oriErr = oriErr.submat(0,0, 0,a);
+			
+			    /////// q -> encoder values/////
+			    serv = (qd*651.7395);
+			    init << 1987 << endr
+			         << 2293 << endr // subject to slip! 
+			         << 2230 << endr
+			         << 1810 << endr
+			         << 1950 << endr
+			         << 2430 << endr;
+			
+			    for(i = 0; i < 6; i++)
+			    {
+			        serv(i) = int(serv(i) + init(i)); //Joint offset!!!
+			        if (serv(i) < 0)
+			        {
+			            serv(i) = serv(i) + 4095;
+			        }
+			    }
+		
+			    //serv.print("Encoder Values: ");
+			    //cout << endl << serv(0) << endl;
+			    for (i=0; i<6; i++)
+			    {
+			        controlPos_OUT[i] = serv(i);
+			    }
+	
+		        if (serv(2) < 940  || serv(2) > 3330)
+		        {
+		            cout << "JOINT 3 O.B.!!!" << endl;
+		            break;
+		            reach = 0;
+		        }
+		        if (serv(3) < 515 || serv(3) > 3160)
+		        {
+		            cout << "JOINT 4 O.B.!!!" << endl;
+		            break;
+		            reach = 0;
+		        }
+		        if (serv(4) < 600 || serv(4) > 3260)
+		        {
+		            cout << "JOINT 5 O.B.!!!" << endl;
+		            break;
+		            reach = 0;
+		        }
+		        if (serv(5) < 1665 || serv(5) > 3715)
+		        {
+		            cout << "JOINT 6 O.B.!!!" << endl;
+		            break;
+		            reach = 0;
+		        }
+		        if (reach)
+		        {
+			       /* control.move(2, int(serv(2)));
+			        usleep(2000000);
+			        control.move(3, int(serv(3)));
+			        usleep(2000000);*/
+			    }
+		   	    break;
+            }
                       
-		/* Iterate q using Jg */
-		Jg = sixDofJ(Abi); 
+		    /* Iterate q using Jg */
+		    Jg = sixDofJ(Abi); 
 
 		    for(i=0; i<3; i++)
 		    {
@@ -362,24 +378,24 @@ void drControl(double *Obe, int *controlPos)
 		    }
 		    //err.print("err: ");
 		    
-		    q = q + dt*solve((Jg+eye(6,6)*lambda),K*err);
-		   for(i=0; i<6; i++)
-		   {
-		        sinq(i) = sin(q(i));
-		        cosq(i) = cos(q(i));
-		        q(i) = atan2(sinq(i),cosq(i));
-           }
+            q = q + dt*solve((Jg+eye(6,6)*lambda),K*err);
+            for(i=0; i<6; i++)
+            {
+                sinq(i) = sin(q(i));
+                cosq(i) = cos(q(i));
+                q(i) = atan2(sinq(i),cosq(i));
+            }
     
-     if(a == attempts)
-   	 {
-	    cout << "Out of Workspace for Desired Orientation" << endl;
-	 }
+            if(a == attempts)
+   	        {
+	            cout << "Out of Workspace for Desired Orientation" << endl;
+	        }
         }
-  }
-   gettimeofday(&stop,NULL);
-   double secs;
-   secs = (double)(stop.tv_usec-start.tv_usec)/1000000 + (double)(stop.tv_sec-start.tv_sec);
-   printf("time: %f\n",secs);
+    }
+    gettimeofday(&stop,NULL);
+    double secs;
+    secs = (double)(stop.tv_usec-start.tv_usec)/1000000 + (double)(stop.tv_sec-start.tv_sec);
+    //printf("time: %f\n",secs);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
