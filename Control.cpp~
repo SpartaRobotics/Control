@@ -21,14 +21,19 @@ vec FK(vec q);
 
 UsbMX control;
 
-////////////////////// g++ Control.cpp -larmadillo UsbMX.cpp -o Control///////////////////////
+////////////////g++ Control.cpp -larmadillo UsbMX.cpp -o Control///////////////////
 
 int main(void)
 {
     // Communication Setup
     control.begin("/dev/ttyUSB0", B1000000);
 	control.setEndless(2, OFF); // Sets the servo to "Servo" mode
-	control.move(2, 0);
+	usleep(10*1000);
+	control.setEndless(3, OFF); // Sets the servo to "Servo" mode
+	usleep(10*1000);
+	control.move(2, 0);  
+    usleep(1000);
+	control.move(3, 0);
 	usleep(5000*1000);
 	// End COMM Setup
 
@@ -68,9 +73,9 @@ int main(void)
 	cube Abi(4,4,8);
 	     
 	 ////////* This will be from CV *///////////// 
-	 obe_d << 32 << endr// upper limit: 32 (when z=8)
-	       << 0 << endr // lower limit: based on assembly
-	       << 8 << endr;// lower limit: < -45 (w/10 on xy)
+	 obe_d << -6 << endr// upper limit: 32 (when z=8)
+	       << 12 << endr // lower limit: based on assembly
+	       << 10 << endr;// lower limit: < -45 (w/10 on xy)
 	 //////// must be reachable with Rbe_d/////////
 	  
 	 // Want Z straigt down & Y toward center of Target//
@@ -82,8 +87,6 @@ int main(void)
     eps_d << 0.5*getSgn(Rbe_d(2,1)-Rbe_d(1,2))*sqrt(Rbe_d(0,0)-Rbe_d(1,1)-Rbe_d(2,2)+1) << endr
         << 0.5*getSgn(Rbe_d(0,2)-Rbe_d(2,0))*sqrt(Rbe_d(1,1)-Rbe_d(0,0)-Rbe_d(2,2)+1) << endr
 	    << 0.5*getSgn(Rbe_d(1,0)-Rbe_d(0,1))*sqrt(Rbe_d(2,2)-Rbe_d(0,0)-Rbe_d(1,1)+1) << endr;
-	    cout << eta_d << endl;
-	    eps_d.print("eps_d: ");
 	           
 	// Arbitrary Start. Will read this from servos //
 	q << 0.1 << endr // desired should be +.0027
@@ -165,18 +168,20 @@ int main(void)
 			posErr = posErr.submat(0,0, 0,a);
 			oriErr = oriErr.submat(0,0, 0,a);
 			/////// q -> servo values/////
-			offset = 2048;
 			serv = (qd*651.7395);
 		//	serv(0) = serv(0)*3; // Gear
 		//  serv(1) = serv(1)*3; // ratios
 			serv.print("Encoder Values: ");
 		    
-		    for(i=0; i<6; i++)
-		    {
-			    cout << "encoder (TEST): " << int(serv(i))+MOVE_OFFSET << endl;
-			    control.move(2, int(serv(i)+MOVE_OFFSET));
+		    //for(i=0; i<6; i++)
+		   // {
+			    cout << "encoder (TEST): " << int(serv(2))+MOVE_OFFSET << endl;
+			    cout << "encoder (TEST): " << int(serv(3))+MOVE_OFFSET << endl;
+			    control.move(2, int(serv(2)+MOVE_OFFSET));
 			    usleep(2000000);
-		    }
+			    control.move(3, int(serv(3)+MOVE_OFFSET));
+			    usleep(2000000);
+		   // }
 			break;
 		}
                       
