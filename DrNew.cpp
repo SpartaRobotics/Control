@@ -23,9 +23,28 @@ cube getAbeach(vec q);
 
 //UsbMX control;
 
-////////////////g++ DrNew.cpp -larmadillo UsbMX.cpp -o Dock///////////////////
+void drControl(double *Obe, int *controlPos);
 
-int main(void)
+////////////////g++ DrNew.cpp -larmadillo UsbMX.cpp -o Dock///////////////////
+int main()
+{
+    double Obe[3] = {280, 0 ,-50};
+    int controlPos[6] = {0, 0, 0, 0, 0, 0}, 
+    i;
+    
+    drControl(Obe, controlPos);
+    
+    cout << endl << "Main servo values: " << endl;
+    for(i=0; i<6; i++)
+    {
+        cout << controlPos[i] << endl;
+    }
+    
+    return 0;
+}
+
+
+void drControl(double *Obe, int *controlPos)
 {
     struct timeval start,stop;
     gettimeofday(&start,NULL);
@@ -104,20 +123,28 @@ int main(void)
 	       
 	    obc << -5 << endr
 	        << 10 << endr //base -> cam (EYEBALL)
-	        << 5.5 << endr;*/
+	        << 5.5 << endr;
 	      
-	    obe_d = oc_d + obc;  
+	    obe_d = oc_d + obc;*/ 
+	    
+	    /* 
 	    cout << "Input Xbe(mm): " << endl;
 	    cin >> obe_d(0);
 	    cout << "Input Ybe(mm): " << endl;
 	    cin >> obe_d(1);
 	    cout << "Input Zbe(mm): " << endl;
 	    cin >> obe_d(2);
+	    */
+	    
+	    obe_d(0) = Obe[0];
+	    obe_d(1) = Obe[1];
+	    obe_d(2) = Obe[2];
+	    
 	    app << 0 << endr
 	        << 0 << endr
 	        << 50 << endr;
 	    obe_d += app;
-	    obe_d.print("obe_d: ");
+	   
 	  
 	    // Want Z straigt down & Y away from center of Target//
 	    Rbe_d << 0 << 1 << 0 << endr
@@ -225,7 +252,7 @@ int main(void)
 
 		if((posErr(0,a) < 10e-2) && (oriErr(0,a) < 10e-2))
 		{
-			cout << "Attempts: "<< a << endl;
+			//cout << "Attempts: "<< a << endl;
 			q(1) = -q(1); //joint 2 reversed (flip for MATLAB sim)
 			reach = 1;
 			for(i=0; i<6; i++)
@@ -258,7 +285,7 @@ int main(void)
 			        }
 			    }
 			}
-			qd.print("qd: ");
+			//qd.print("qd: ");
 			
 			/////////rad -> deg////////////////
 			qdeg = qd * 180 / M_PI;
@@ -283,7 +310,12 @@ int main(void)
 			    }
 			}
 		
-			serv.print("Encoder Values: ");
+			//serv.print("Encoder Values: ");
+			//cout << endl << serv(0) << endl;
+			for (i=0; i<6; i++)
+			{
+			    controlPos[i] = serv(i);
+			}
 	
 		    if (serv(2) < 940  || serv(2) > 3330)
 		    {
@@ -347,9 +379,9 @@ int main(void)
    gettimeofday(&stop,NULL);
    double secs;
    secs = (double)(stop.tv_usec-start.tv_usec)/1000000 + (double)(stop.tv_sec-start.tv_sec);
-   printf("time: %f\n",secs);
-    return 0;
+   //printf("time: %f\n",secs);
 }
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 /* sgn Function */
 double getSgn(double x)
